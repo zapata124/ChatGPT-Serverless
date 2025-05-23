@@ -172,3 +172,32 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# packages folder
+/package/
+/package/**
+package/
+package/**
+
+# API Keys and Secrets
+.env
+.env.*
+*.env
+config.json
+credentials.json
+samconfig.toml
+*_key
+*_keys
+*_token
+*_tokens
+*_secret
+*_secrets
+*_password
+*_passwords
+*_credential
+*_credentials
+aws-credentials.json
+aws-credentials.yaml
+aws-credentials.yml
+.aws/credentials
+.aws/config

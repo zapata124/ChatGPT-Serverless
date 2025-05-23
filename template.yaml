@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Python Lambda function with SAM template
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 128
+    Runtime: python3.12
+    Architectures:
+      - x86_64
+  Api:
+    Auth:
+      ApiKeyRequired: true
+      DefaultAuthorizer: IAMAuthorizer
+      Authorizers:
+        IAMAuthorizer:
+          FunctionArn: !GetAtt HelloWorldFunction.Arn
+      UsagePlan:
+        CreateUsagePlan: PER_API
+        Description: Usage plan for Hello World API
+
+Resources:
+  HelloWorldFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: lambda_function.handler
+      Events:
+        HelloWorld:
+          Type: Api
+          Properties:
+            Path: /hello
+            Method: post
+            Auth:
+              ApiKeyRequired: true
+              Authorizer: IAMAuthorizer
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          OPENAI_API_KEY: !Ref OpenAIApiKey
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:Invoke
+              Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*"
+
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: HelloWorldApiKey
+      Description: API Key for Hello World API
+      Enabled: true
+
+  TestUserRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-test-user-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+      Policies:
+        - PolicyName: APIAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - execute-api:Invoke
+                Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*"
+
+Parameters:
+  OpenAIApiKey:
+    Type: String
+    Description: OpenAI API Key
+    NoEcho: true
+
+Outputs:
+  HelloWorldApi:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello"
+  HelloWorldFunction:
+    Description: Lambda Function ARN
+    Value: !GetAtt HelloWorldFunction.Arn
+  HelloWorldFunctionRole:
+    Description: Lambda Function Role ARN
+    Value: !GetAtt HelloWorldFunctionRole.Arn
+  ApiKey:
+    Description: API Key for authentication
+    Value: !Ref ApiKey
+  TestUserRole:
+    Description: IAM Role for testing the API
+    Value: !GetAtt TestUserRole.Arn
