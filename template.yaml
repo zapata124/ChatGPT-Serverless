@@ -15,22 +15,22 @@ Globals:
       DefaultAuthorizer: IAMAuthorizer
       Authorizers:
         IAMAuthorizer:
-          FunctionArn: !GetAtt HelloWorldFunction.Arn
+          FunctionArn: !GetAtt ChatGPTServerless.Arn
       UsagePlan:
         CreateUsagePlan: PER_API
-        Description: Usage plan for Hello World API
+        Description: Usage plan for ChatGPT API
 
 Resources:
-  HelloWorldFunction:
+  ChatGPTServerless:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/
       Handler: lambda_function.handler
       Events:
-        HelloWorld:
+        ChatGPT:
           Type: Api
           Properties:
-            Path: /hello
+            Path: /chat
             Method: post
             Auth:
               ApiKeyRequired: true
@@ -38,7 +38,7 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: INFO
-          OPENAI_API_KEY: !Ref OpenAIApiKey
+          OPENAI_API_KEY: "Placeholder"
       Policies:
         - AWSLambdaBasicExecutionRole
         - Statement:
@@ -50,8 +50,8 @@ Resources:
   ApiKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
-      Name: HelloWorldApiKey
-      Description: API Key for Hello World API
+      Name: ChatGPTApiKey
+      Description: API Key for ChatGPT API
       Enabled: true
 
   TestUserRole:
@@ -77,22 +77,16 @@ Resources:
                   - execute-api:Invoke
                 Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*"
 
-Parameters:
-  OpenAIApiKey:
-    Type: String
-    Description: OpenAI API Key
-    NoEcho: true
-
 Outputs:
-  HelloWorldApi:
+  ChatGPTApi:
     Description: API Gateway endpoint URL
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello"
-  HelloWorldFunction:
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/chat"
+  ChatGPTFunction:
     Description: Lambda Function ARN
-    Value: !GetAtt HelloWorldFunction.Arn
-  HelloWorldFunctionRole:
+    Value: !GetAtt ChatGPTServerless.Arn
+  ChatGPTFunctionRole:
     Description: Lambda Function Role ARN
-    Value: !GetAtt HelloWorldFunctionRole.Arn
+    Value: !GetAtt ChatGPTServerlessRole.Arn
   ApiKey:
     Description: API Key for authentication
     Value: !Ref ApiKey

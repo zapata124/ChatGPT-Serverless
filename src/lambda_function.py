@@ -1,81 +1,65 @@
-"""
-AWS Lambda function handler for ChatGPT integration.
-"""
-import json
 import os
-from typing import Any, Dict
-from aws_lambda_powertools import Logger
-from aws_lambda_powertools.utilities.typing import LambdaContext
-import openai
+import json
+import httpx
+from openai import OpenAI
 
-# Initialize logger
-logger = Logger()
+def get_openai_client():
+    api_key = "placeholder" # Set in Lambda environment variables
+    proxy = os.environ.get("HTTPS_PROXY")
+    if proxy:
+        # Use http_client as required by openai v1.x
+        http_client = httpx.Client(proxies=proxy)
+        return OpenAI(api_key=api_key, http_client=http_client)
+    return OpenAI(api_key=api_key)
 
-# Initialize OpenAI client
-openai.api_key = os.environ.get('OPENAI_API_KEY')
+client = get_openai_client()
 
-@logger.inject_lambda_context
-def handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, Any]:
-    """
-    Lambda function handler for ChatGPT integration.
-    
-    Args:
-        event (Dict[str, Any]): Lambda event data
-        context (LambdaContext): Lambda context object
-        
-    Returns:
-        Dict[str, Any]: Response containing ChatGPT's response
-    """
+def handler(event, context):
     try:
-        # Log the incoming event
-        logger.info("Received event", extra={"event": event})
-        
-        # Extract message from event body
-        body = event.get('body', '{}')
-        if isinstance(body, str):
-            body = json.loads(body)
-        
-        message = body.get('message', '')
+        raw_body = event.get('body', '{}')
+
+        # Fix: ensure raw_body is a string before parsing
+        if isinstance(raw_body, str):
+            body = json.loads(raw_body)
+        elif isinstance(raw_body, dict):
+            body = raw_body
+        else:
+            body = {}
+
+        message = body.get('message', '').strip()
+
         if not message:
             return {
-                'statusCode': 400,
-                'body': json.dumps({
-                    'error': 'Message is required'
-                })
+                "statusCode": 400,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                },
+                "body": json.dumps({"error": "Message is required"})
             }
-        
-        # Call ChatGPT
-        response = openai.chat.completions.create(
+
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": message}
-            ],
-            temperature=0.7,
-            max_tokens=500
+            messages=[{"role": "user", "content": message}]
         )
-        
-        # Extract the response
+
         chat_response = response.choices[0].message.content
-        
-        # Create response
-        response = {
-            'statusCode': 200,
-            'body': json.dumps({
-                'response': chat_response,
-                'input': message
-            })
-        }
-        
-        logger.info("Sending response", extra={"response": response})
-        return response
-        
-    except Exception as e:
-        logger.exception("Error processing request")
+
         return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'error': 'Internal server error',
-                'message': str(e)
-            })
-        } 
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps({"response": chat_response})
+        }
+
+    except Exception as exc:
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps({"error": str(exc)})
+        }
